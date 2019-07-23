@@ -2,12 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import './parser.dart';
-import './socket_platform_io.dart';
 import './socket_platform.dart';
 import './channel.dart';
 import './reconnect_strategy.dart';
 import './basic_listener.dart';
 import './emitter.dart';
+import 'socket_platform_http.dart';
 
 class Socket extends Emitter {
   dynamic _socket;
@@ -27,19 +27,25 @@ class Socket extends Emitter {
   static const int CLOSING = 2;
   static const int CLOSED = 3;
 
-  Socket._internal(this._socket, {this.authToken, this.strategy, this.listener}) {
+  Socket._internal(this._socket,
+      {this.authToken, this.strategy, this.listener}) {
     this._socket = _socket;
-    if (globalSocketPlatform == IoSocketPlatform) {
+    if (globalSocketPlatform == HttpSocketPlatform) {
       _socket.listen(handleMessage).onDone(onSocketDone);
       onSocketOpened();
     } else {
-      _socket..onOpen.listen(onSocketOpened)..onClose.listen(onSocketDone)..onMessage.listen(handleMessage);
+      _socket
+        ..onOpen.listen(onSocketOpened)
+        ..onClose.listen(onSocketDone)
+        ..onMessage.listen(handleMessage);
     }
   }
 
   static Future<Socket> connect(String url,
-      {String authToken, ReconnectStrategy strategy, BasicListener listener}) async {
-    if (globalSocketPlatform == IoSocketPlatform){
+      {String authToken,
+      ReconnectStrategy strategy,
+      BasicListener listener}) async {
+    if (globalSocketPlatform == HttpSocketPlatform) {
       var socket = await globalSocketPlatform.webSocket(url);
       return new Socket._internal(
         socket,
@@ -48,10 +54,11 @@ class Socket extends Emitter {
         listener: listener,
       );
     } else {
-        var _htmlsocket = globalSocketPlatform.webSocket(url);
-        var _socket = new Socket._internal(_htmlsocket, authToken: authToken, strategy: strategy, listener: listener);
-        await whenTrue(_socket._socket.onOpen);
-        return _socket;
+      var _htmlsocket = globalSocketPlatform.webSocket(url);
+      var _socket = new Socket._internal(_htmlsocket,
+          authToken: authToken, strategy: strategy, listener: listener);
+      await whenTrue(_socket._socket.onOpen);
+      return _socket;
     }
   }
 
@@ -65,8 +72,8 @@ class Socket extends Emitter {
     // stream exited without a true value, maybe return an exception.
   }
 
-  sendOrAdd([json]){
-    if (globalSocketPlatform == IoSocketPlatform) {
+  sendOrAdd([json]) {
+    if (globalSocketPlatform == HttpSocketPlatform) {
       _socket.add(json);
     } else {
       _socket.send(json);
@@ -116,7 +123,7 @@ class Socket extends Emitter {
 
   void handleMessage([dynamic messageEvent]) {
     String message;
-    if (globalSocketPlatform != IoSocketPlatform) {
+    if (globalSocketPlatform != HttpSocketPlatform) {
       message = messageEvent.data;
     } else {
       message = messageEvent;
